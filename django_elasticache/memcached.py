@@ -10,7 +10,6 @@ import pickle
 
 class ElastiCacheBase(object):
     def __init__(self, server, params):
-        self.update_params(params)
         super(ElastiCache, self).__init__(server, params)
         if len(self._servers) > 1:
             raise InvalidCacheBackendError(
@@ -36,6 +35,10 @@ class ElastiCacheBase(object):
 
 
 class ElastiCache(ElastiCacheBase, PyLibMCCache):
+    def __init__(self, server, params):
+        self.update_params(params)
+        super(ElastiCache, self).__init__(server, params)
+
     """
     backend for Amazon ElastiCache (memcached) with auto discovery mode
     it used pylibmc in binary mode
