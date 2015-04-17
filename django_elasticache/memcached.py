@@ -3,7 +3,7 @@ Backend for django cache
 """
 import socket
 from django.core.cache import InvalidCacheBackendError
-from django.core.cache.backends.memcached import PyLibMCCache, BaseMemcachedCache
+from django.core.cache.backends.memcached import PyLibMCCache, MemcachedCache
 from django.utils.functional import cached_property
 from .cluster_utils import get_cluster_info
 import pickle
@@ -18,6 +18,7 @@ class ElastiCacheBase(object):
         if len(self._servers[0].split(':')) != 2:
             raise InvalidCacheBackendError(
                 'Server configuration should be in format IP:port')
+
 
     @cached_property
     def get_cluster_nodes(self):
@@ -82,7 +83,7 @@ class ElastiCache(ElastiCacheBase, PyLibMCCache):
         return client
 
 
-class PythonElastiCache(ElastiCacheBase, BaseMemcachedCache):
+class PythonElastiCache(MemcachedCache, ElastiCacheBase):
     @property
     def _cache(self):
         if getattr(self, '_client', None) is None:
