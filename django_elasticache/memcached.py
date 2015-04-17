@@ -9,8 +9,8 @@ from .cluster_utils import get_cluster_info
 import pickle
 
 class ElastiCacheBase(object):
-    def __init__(self, server, params):
-        super(ElastiCacheBase, self).__init__(server, params)
+    def __init__(self, *args, **kwargs):
+        super(ElastiCacheBase, self).__init__(*args, **kwargs)
         if len(self._servers) > 1:
             raise InvalidCacheBackendError(
                 'ElastiCache should be configured with only one server '
