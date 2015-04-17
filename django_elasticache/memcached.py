@@ -3,16 +3,12 @@ Backend for django cache
 """
 import socket
 from django.core.cache import InvalidCacheBackendError
-from django.core.cache.backends.memcached import PyLibMCCache
+from django.core.cache.backends.memcached import PyLibMCCache, BaseMemcachedCache
 from django.utils.functional import cached_property
 from .cluster_utils import get_cluster_info
+import pickle
 
-
-class ElastiCache(PyLibMCCache):
-    """
-    backend for Amazon ElastiCache (memcached) with auto discovery mode
-    it used pylibmc in binary mode
-    """
+class ElastiCacheBase(object):
     def __init__(self, server, params):
         self.update_params(params)
         super(ElastiCache, self).__init__(server, params)
@@ -24,6 +20,26 @@ class ElastiCache(PyLibMCCache):
             raise InvalidCacheBackendError(
                 'Server configuration should be in format IP:port')
 
+    @cached_property
+    def get_cluster_nodes(self):
+        """
+        return list with all nodes in cluster
+        """
+        server, port = self._servers[0].split(':')
+        try:
+            return get_cluster_info(server, port)['nodes']
+        except (socket.gaierror, socket.timeout) as err:
+            raise Exception('Cannot connect to cluster {} ({})'.format(
+                self._servers[0], err
+            ))
+
+
+
+class ElastiCache(ElastiCacheBase, PyLibMCCache):
+    """
+    backend for Amazon ElastiCache (memcached) with auto discovery mode
+    it used pylibmc in binary mode
+    """
     def update_params(self, params):
         """
         update connection params to maximize performance
@@ -39,19 +55,6 @@ class ElastiCache(PyLibMCCache):
                 'tcp_nodelay': True,
                 'ketama': True
             }
-
-    @cached_property
-    def get_cluster_nodes(self):
-        """
-        return list with all nodes in cluster
-        """
-        server, port = self._servers[0].split(':')
-        try:
-            return get_cluster_info(server, port)['nodes']
-        except (socket.gaierror, socket.timeout) as err:
-            raise Exception('Cannot connect to cluster {} ({})'.format(
-                self._servers[0], err
-            ))
 
     @property
     def _cache(self):
@@ -74,3 +77,12 @@ class ElastiCache(PyLibMCCache):
         container._client = client
 
         return client
+
+
+class PythonElastiCache(ElastiCacheBase, BaseMemcachedCache):
+    @property
+    def _cache(self):
+        if getattr(self, '_client', None) is None:
+            self._client = self._lib.Client(self.get_cluster_nodes,
+                                            pickleProtocol=pickle.HIGHEST_PROTOCOL)
+        return self._client
